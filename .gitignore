@@ -1,5 +1,11 @@
 .idea/
 venv/
+.venv/
 __pycache__/
+.cache/
+.tmp/
+.browser-profile/
+.reference/
+logs/
 epub/*
 src/*.jpg

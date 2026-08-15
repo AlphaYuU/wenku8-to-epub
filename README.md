@@ -40,7 +40,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
+Windows 本地部署也可以直接双击项目根目录的 `run.cmd`。该启动器会使用项目内的
+`.venv`，并把缓存、Chrome 用户数据和临时文件保存在项目目录中。
+
+由于 wenku8 目前启用了 Cloudflare 验证，输入小说 ID 后会打开一个独立的 Chrome
+窗口。首次运行时如出现验证页面，请在该窗口中完成验证；验证状态保存在
+`.browser-profile`，后续运行会自动复用。下载期间不要关闭这个 Chrome 窗口。
+最近一次运行的完整控制台记录保存在 `logs/last-run.log`，便于排查中途失败。
+
 输入要下载的book_id，根据提示输入指令，等待下载完成。
+一本书导出结束后程序会自动返回小说 ID 输入界面，可继续导出其他作品；输入 `q`
+（或 `quit`、`exit`）才会退出程序。
 
 > 封装好的epub小说默认保存在项目根目录`epub`文件夹下。
 
@@ -56,6 +66,10 @@ python main.py
 | `wenku_host`             | `www.wenku8.com` | 访问wenku8的主机名                                           |
 | `wenkupic_proxy_host`    | `None`           | 反代`pic.wenku8.com`的host：`xxxx.xxxx.workers.dev` 或 自定义域名 |
 | `wenkuapp_proxy_host`    | `None`           | 反代`app.wenku8.com`的host：`xxxx.xxxx.workers.dev` 或 自定义域名 |
+| `use_browser`            | `True`           | 使用系统 Chrome 访问受 Cloudflare 保护的网页                    |
+| `browser_wait_timeout`   | `180`            | 等待浏览器完成 Cloudflare 验证的最长时间（秒）                   |
+| `browser_max_retries`    | `5`              | 遇到临时 HTTP 403/429/服务器错误时的最大尝试次数                 |
+| `browser_retry_base_delay` | `8`            | 首次重试等待时间，后续按指数增加，最长等待 45 秒                 |
 
 
 

@@ -4,10 +4,11 @@ wenku8下载
 import os
 import time
 import base64
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from lxml import etree
+from browser_session import BrowserSession
 
 
 def delay_time(func):
@@ -22,7 +23,9 @@ def delay_time(func):
 
 
 class Wenku8Download:
-    def __init__(self, book_id, hostname='www.wenku8.com', wenkupic_proxy_host=None, wenkuapp_proxy_host=None):
+    def __init__(self, book_id, hostname='www.wenku8.com', wenkupic_proxy_host=None, wenkuapp_proxy_host=None,
+                 use_browser=False, browser_wait_timeout=180, browser_max_retries=5,
+                 browser_retry_base_delay=8):
         self.hostname = hostname
         self.wenkupic_proxy_host = wenkupic_proxy_host
         self.image_idx = 0
@@ -50,7 +53,8 @@ class Wenku8Download:
         self.wka = Wenku8AndroidDownload(wenkuapp_proxy_host)
         self.wka.sleep_time = self.sleep_time
 
-        self._s = requests.Session()
+        self._s = (BrowserSession(browser_wait_timeout, browser_max_retries, browser_retry_base_delay)
+                   if use_browser else requests.Session())
         self._s.headers.update({
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -75,39 +79,52 @@ class Wenku8Download:
         if res.status_code != 200:
             if '错误原因' in html_text:
                 self._get_error_msg(html_text, '错误原因', '<br')
+            elif res.status_code == 403:
+                self.error_msg = ('HTTP 403: wenku8 拒绝了当前访问。'
+                                  '请启用浏览器模式并在打开的 Chrome 中完成验证。')
             else:
-                self.error_msg = 'Unknow error.'
+                self.error_msg = f'HTTP {res.status_code}: {res.url}'
             return
 
         if '版权问题' in html_text:
             self.book['copyright'] = False
 
         html = etree.HTML(html_text)
-        toc_path = html.xpath('//*[@id="content"]/div[1]/div[4]/div/span[1]/fieldset/div/a/@href')
+        toc_path = html.xpath('//*[@id="content"]//a[contains(normalize-space(.), "小说目录")]/@href')
         if toc_path:
-            self.book['api']['toc'] = self.book['api']['toc'].format(toc_path=toc_path[0])
+            self.book['api']['toc'] = urljoin(res.url, toc_path[0])
         else:
             self.error_msg = 'directory not detected.'
             return
 
-        title = html.xpath('//*[@id="content"]/div[1]/table[1]/tr[1]/td/table/tr/td[1]/span/b/text()')
+        title = html.xpath('//*[@id="content"]//table[1]//b[1]//text()')
         if title:
             self.book['title'] = title[0][:title[0].find('(') if '(' in title[0] else None].strip()
 
-        nodes = html.xpath('//*[@id="content"]/div[1]/table[1]/tr[2]')[0]
-        self.book['publisher'] = nodes.xpath('td[1]/text()')[0].strip().lstrip('文库分类：')
-        self.book['author'] = nodes.xpath('td[2]/text()')[0].strip().lstrip('小说作者：')
-        self.book['status'] = nodes.xpath('td[3]/text()')[0].strip().lstrip('文章状态：')
+        info_cells = html.xpath('//*[@id="content"]//table[1]//td')
+        for cell in info_cells:
+            text = ''.join(cell.itertext()).strip()
+            if '文库分类：' in text:
+                self.book['publisher'] = text.split('文库分类：', 1)[1].strip()
+            elif '小说作者：' in text:
+                self.book['author'] = text.split('小说作者：', 1)[1].strip()
+            elif '文章状态：' in text:
+                self.book['status'] = text.split('文章状态：', 1)[1].strip()
 
-        cover_node = html.xpath('//*[@id="content"]/div[1]/table[2]/tr/td[1]/img/@src')
+        cover_node = html.xpath('//*[@id="content"]//img[1]/@src')
         if cover_node:
-            self.book['cover_url'] = cover_node[0]
+            self.book['cover_url'] = urljoin(res.url, cover_node[0])
 
-        tags = html.xpath('//*[@id="content"]/div[1]/table[2]/tr/td[2]/span[1]/b/text()')
+        tags = html.xpath('//*[@id="content"]//b[contains(normalize-space(.), "作品Tags")]//text()')
         if tags:
-            self.book['tags'] = tags[0].strip().lstrip('作品Tags：').split()
+            tag_text = ''.join(tags).strip()
+            self.book['tags'] = tag_text.split('作品Tags：', 1)[-1].split()
 
-        description = html.xpath('//*[@id="content"]/div[1]/table[2]/tr/td[2]/span[last()]/text()')
+        description = html.xpath(
+            '//*[@id="content"]//span[contains(normalize-space(.), "内容简介")]/following-sibling::span[1]//text()'
+        )
+        if not description:
+            description = html.xpath('//*[@id="content"]//table[2]//span[last()]//text()')
         if description:
             self.book['description'] = '\n'.join([desp.strip() for desp in description])
 
@@ -118,12 +135,17 @@ class Wenku8Download:
         html_text = res.content.decode(res.apparent_encoding)
 
         html = etree.HTML(html_text)
-        toc_nodes = html.xpath('/html/body/table/tr')
+        toc_nodes = html.xpath('//table[contains(concat(" ", normalize-space(@class), " "), " css ")]//tr')
+        if not toc_nodes:
+            toc_nodes = html.xpath('/html/body//table[1]//tr')
         volume = {}  # 临时存储volume，引用列表内字典
         for cnode in toc_nodes:
             tds = cnode.xpath('td')
-            if len(tds) == 1 and tds[0].xpath('@colspan'):  # 通过属性判断是volume
-                volume_title = tds[0].xpath('text()')[0]
+            is_volume = len(tds) == 1 and (
+                tds[0].xpath('@colspan') or 'vcss' in (tds[0].get('class') or '').split()
+            )
+            if is_volume:
+                volume_title = ''.join(tds[0].itertext()).strip()
                 self.book['toc'].append({'volume': volume_title, 'chapter': []})
                 volume = self.book['toc'][-1]
             else:
@@ -131,8 +153,9 @@ class Wenku8Download:
                     if td.xpath('a'):
                         chapter_node = td.xpath('a')
                         chapter_href = chapter_node[0].get('href')
-                        chapter_title = chapter_node[0].text
-                        volume['chapter'].append((chapter_title, chapter_href))
+                        chapter_title = ''.join(chapter_node[0].itertext()).strip()
+                        if volume and chapter_href and chapter_title:
+                            volume['chapter'].append((chapter_title, chapter_href))
 
     @delay_time
     def get_chapter(self, href):
@@ -144,7 +167,7 @@ class Wenku8Download:
 
     def _get_chapter_by_web(self, href):
         """通过web端获取章节内容"""
-        chapter_url = self.book['api']['toc'].replace('index.htm', href)
+        chapter_url = urljoin(self.book['api']['toc'], href)
         res = self._s.get(chapter_url)
         html_text = res.content.decode(res.apparent_encoding)
 
@@ -168,9 +191,14 @@ class Wenku8Download:
             content_nodes = content_nodes[0]
             content_list = [nodes.strip() for nodes in content_nodes.xpath('text()') if nodes.strip()]
             if not len(content_list):  # 插图页
-                image_nodes = content_nodes.xpath('//*[@class="divimage"]')
-                image_urls = [div.xpath('a/@href')[0].replace('http://', 'https://') for div in image_nodes]
+                image_nodes = content_nodes.xpath('.//*[contains(concat(" ", normalize-space(@class), " "), " divimage ")]')
+                image_urls = [urljoin(chapter_url, div.xpath('a/@href')[0]).replace('http://', 'https://')
+                              for div in image_nodes if div.xpath('a/@href')]
         return content_title, content_list, image_urls
+
+    def close(self):
+        """关闭 requests 或 Chrome 会话。"""
+        self._s.close()
 
     def _get_chapter_by_android(self, cid):
         """通过APP端获取章节内容"""
