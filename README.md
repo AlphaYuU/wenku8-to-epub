@@ -11,6 +11,7 @@
 - **按卷下载**、**指定卷下载**、**整本下载**小说各章节（含插图页）并封装至epub，并且通过了calibre检错
 - 从Web端/APP端获取章节内容
 - 填写小说元数据（标题、作者、介绍、出版商、标签、封面）
+  - 支持EPUB 3标准丛书元数据（系列名称、类型、序号）
   - 支持[calibre](https://github.com/kovidgoyal/calibre)自有元数据（丛书series、丛书编号series_index）
 - 生成小说目录
 

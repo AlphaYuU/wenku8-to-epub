@@ -48,7 +48,16 @@ class Epub:
         if isinstance(tag_list, list):
             for tag in tag_list:
                 self.book.add_metadata('DC', 'subject', tag)
-        self.book.add_metadata('DC', 'belongs-to-collection', self.title.split()[0])
+        # EPUB 3 标准丛书元数据。belongs-to-collection 不是 Dublin Core
+        # 元素，必须写成 meta property，并通过 refines 关联类型和序号。
+        series_id = 'series'
+        self.book.add_metadata(None, 'meta', title,
+                               {'property': 'belongs-to-collection', 'id': series_id})
+        self.book.add_metadata(None, 'meta', 'series',
+                               {'property': 'collection-type', 'refines': f'#{series_id}'})
+        if vol_idx:
+            self.book.add_metadata(None, 'meta', str(vol_idx),
+                                   {'property': 'group-position', 'refines': f'#{series_id}'})
 
         # 适配calibre数据
         self.book.add_metadata(None, 'meta', None,

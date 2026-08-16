@@ -73,8 +73,8 @@ if not os.path.exists(save_epub_dir):
     os.makedirs(save_epub_dir)
 
 
-def download_volume(book_epub, it, mode_id=0):
-    """封装chapter"""
+def download_volume(book_epub, it, include_volume_in_toc=False):
+    """下载一卷，并按需在 EPUB 目录中保留卷级目录。"""
     print('Start making volume:', wk.book['title'], it['volume'])
     for chapter_title, chapter_href in it['chapter']:
         content_title, content_list, image_urls = wk.get_chapter(chapter_href)
@@ -106,8 +106,9 @@ def download_volume(book_epub, it, mode_id=0):
         else:
             print('├── Downloaded empty chapter.')
 
-        # 开始分卷下载 / 整本下载
-        book_epub.set_html(chapter_title, html_body, it['volume'] if mode_id == 1 else None)
+        # 多卷合并为整本时保留卷级目录；单卷 EPUB 使用扁平目录。
+        volume_title = it['volume'] if include_volume_in_toc else None
+        book_epub.set_html(chapter_title, html_body, volume_title)
 
     if not book_epub.is_set_cover:  # 插图第一张图片未能设置为封面，就把缩略图作为封面
         book_epub.set_cover('src/cover.jpg')
@@ -122,8 +123,10 @@ def whole_book_download():
                            tag_list=wk.book['tags'], vol_idx=1,
                            cover_path='src/cover.jpg' if not use_divimage_set_cover else None)
 
+    # 只有多卷整本才需要“卷 -> 章”两级目录；仅一卷时直接显示章节。
+    include_volume_in_toc = len(wk.book['toc']) > 1
     for it in wk.book['toc']:
-        flag = download_volume(book_epub, it, mode_id=1)
+        flag = download_volume(book_epub, it, include_volume_in_toc=include_volume_in_toc)
         if not flag:
             return False
         print('└── Making volume completed.\n')
@@ -161,7 +164,7 @@ def volume_by_volume_download():
                                tag_list=wk.book['tags'], vol_idx=vol_idx,
                                cover_path='src/cover.jpg' if not use_divimage_set_cover else None)
 
-        flag = download_volume(book_epub, it, mode_id=0)
+        flag = download_volume(book_epub, it, include_volume_in_toc=False)
         if not flag:
             return False
 
