@@ -24,8 +24,9 @@ def delay_time(func):
 
 class Wenku8Download:
     def __init__(self, book_id, hostname='www.wenku8.com', wenkupic_proxy_host=None, wenkuapp_proxy_host=None,
-                 use_browser=False, browser_wait_timeout=180, browser_max_retries=5,
-                 browser_retry_base_delay=8):
+                 use_browser=False, browser_headless=False, browser_start_minimized=False,
+                 browser_keep_console_focused=True,
+                 browser_wait_timeout=180, browser_max_retries=5, browser_retry_base_delay=8):
         self.hostname = hostname
         self.wenkupic_proxy_host = wenkupic_proxy_host
         self.image_idx = 0
@@ -53,7 +54,9 @@ class Wenku8Download:
         self.wka = Wenku8AndroidDownload(wenkuapp_proxy_host)
         self.wka.sleep_time = self.sleep_time
 
-        self._s = (BrowserSession(browser_wait_timeout, browser_max_retries, browser_retry_base_delay)
+        self._s = (BrowserSession(browser_wait_timeout, browser_max_retries, browser_retry_base_delay,
+                                  headless=browser_headless, start_minimized=browser_start_minimized,
+                                  keep_console_focused=browser_keep_console_focused)
                    if use_browser else requests.Session())
         self._s.headers.update({
             'Content-Type': 'application/x-www-form-urlencoded',

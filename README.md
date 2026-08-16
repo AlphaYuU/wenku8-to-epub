@@ -44,9 +44,9 @@ python main.py
 Windows 本地部署也可以直接双击项目根目录的 `run.cmd`。该启动器会使用项目内的
 `.venv`，并把缓存、Chrome 用户数据和临时文件保存在项目目录中。
 
-由于 wenku8 目前启用了 Cloudflare 验证，输入小说 ID 后会打开一个独立的 Chrome
-窗口。首次运行时如出现验证页面，请在该窗口中完成验证；验证状态保存在
-`.browser-profile`，后续运行会自动复用。下载期间不要关闭这个 Chrome 窗口。
+默认使用可见 Chrome 访问 wenku8，但 Chrome 启动和自动跳转后会把键盘焦点还给
+CMD，不影响继续输入。需要人工完成 Cloudflare 验证时，手动点击 Chrome 即可。
+验证状态保存在 `.browser-profile` 并会在后续运行中复用。
 最近一次运行的完整控制台记录保存在 `logs/last-run.log`，便于排查中途失败。
 
 输入要下载的book_id，根据提示输入指令，等待下载完成。
@@ -68,6 +68,9 @@ Windows 本地部署也可以直接双击项目根目录的 `run.cmd`。该启�
 | `wenkupic_proxy_host`    | `None`           | 反代`pic.wenku8.com`的host：`xxxx.xxxx.workers.dev` 或 自定义域名 |
 | `wenkuapp_proxy_host`    | `None`           | 反代`app.wenku8.com`的host：`xxxx.xxxx.workers.dev` 或 自定义域名 |
 | `use_browser`            | `True`           | 使用系统 Chrome 访问受 Cloudflare 保护的网页                    |
+| `browser_headless`       | `False`          | 是否在后台无界面运行 Chrome                                    |
+| `browser_start_minimized`| `False`          | 可见模式下是否最小化启动 Chrome                                |
+| `browser_keep_console_focused` | `True`    | Chrome 启动和跳转后是否把输入焦点还给 CMD                      |
 | `browser_wait_timeout`   | `180`            | 等待浏览器完成 Cloudflare 验证的最长时间（秒）                   |
 | `browser_max_retries`    | `5`              | 遇到临时 HTTP 403/429/服务器错误时的最大尝试次数                 |
 | `browser_retry_base_delay` | `8`            | 首次重试等待时间，后续按指数增加，最长等待 45 秒                 |

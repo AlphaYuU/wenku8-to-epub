@@ -25,6 +25,12 @@ wenkupic_proxy_host = None
 wenkuapp_proxy_host = None
 # 使用系统 Chrome 访问受 Cloudflare 保护的网页；浏览器配置保存在项目目录内
 use_browser = True
+# 是否在后台无界面运行 Chrome；False 表示保留可操作的浏览器窗口
+browser_headless = False
+# 可见模式下是否最小化启动 Chrome
+browser_start_minimized = False
+# Chrome 启动和自动跳转后把输入焦点还给 CMD
+browser_keep_console_focused = True
 # 等待用户在 Chrome 中完成 Cloudflare 验证的最长时间（秒）
 browser_wait_timeout = 180
 # 临时 HTTP 403/429/服务器错误的最大尝试次数与首次等待时间（秒）
@@ -208,6 +214,9 @@ def download_one_book(book_id):
             wenkupic_proxy_host,
             wenkuapp_proxy_host,
             use_browser=use_browser,
+            browser_headless=browser_headless,
+            browser_start_minimized=browser_start_minimized,
+            browser_keep_console_focused=browser_keep_console_focused,
             browser_wait_timeout=browser_wait_timeout,
             browser_max_retries=browser_max_retries,
             browser_retry_base_delay=browser_retry_base_delay,

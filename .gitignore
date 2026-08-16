@@ -9,3 +9,6 @@ __pycache__/
 logs/
 epub/*
 src/*.jpg
+build/
+dist/
+*.spec
